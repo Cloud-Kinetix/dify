@@ -150,6 +150,7 @@ const Main: FC<IMainProps> = ({
 
     setControlUpdateConversationList(Date.now())
   }
+  const openingSuggestedQuestions = useRef<string[]>([])
   const [suggestedQuestionsAfterAnswerConfig, setSuggestedQuestionsAfterAnswerConfig] = useState<SuggestedQuestionsAfterAnswerConfig | null>(null)
   const [speechToTextConfig, setSpeechToTextConfig] = useState<SuggestedQuestionsAfterAnswerConfig | null>(null)
   const [textToSpeechConfig, setTextToSpeechConfig] = useState<SuggestedQuestionsAfterAnswerConfig | null>(null)
@@ -163,6 +164,7 @@ const Main: FC<IMainProps> = ({
     setCurrInputs(inputs)
     setChatStarted()
     // parse variables in introduction
+    console.log('handleStartChat')
     setChatList(generateNewChatListWithOpenstatement('', inputs))
   }
   const hasSetInputs = (() => {
@@ -206,6 +208,7 @@ const Main: FC<IMainProps> = ({
     if (!isNewConversation && !conversationIdChangeBecauseOfNew && !isResponding) {
       fetchChatList(currConversationId, isInstalledApp, installedAppInfo?.id).then((res: any) => {
         const { data } = res
+        console.log('fetchChatLIst')
         const newChatList: IChatItem[] = generateNewChatListWithOpenstatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
         data.forEach((item: any) => {
@@ -229,8 +232,10 @@ const Main: FC<IMainProps> = ({
       })
     }
 
-    if (isNewConversation && isChatStarted)
+    if (isNewConversation && isChatStarted) {
+      console.log('handleConversationSwitch')
       setChatList(generateNewChatListWithOpenstatement())
+    }
 
     setControlFocus(Date.now())
   }
@@ -279,7 +284,9 @@ const Main: FC<IMainProps> = ({
       isAnswer: true,
       feedbackDisabled: true,
       isOpeningStatement: isPublicVersion,
+      suggestedQuestions: openingSuggestedQuestions.current ?? [],
     }
+    console.log(openstatement)
     if (caculatedIntroduction)
       return [openstatement]
 
@@ -327,7 +334,7 @@ const Main: FC<IMainProps> = ({
         const isNotNewConversation = allConversations.some(item => item.id === _conversationId)
         setAllConversationList(allConversations)
         // fetch new conversation info
-        const { user_input_form, opening_statement: introduction, suggested_questions_after_answer, speech_to_text, text_to_speech, retriever_resource, file_upload, sensitive_word_avoidance }: any = appParams
+        const { user_input_form, opening_statement: introduction, suggested_questions_after_answer, speech_to_text, text_to_speech, retriever_resource, file_upload, suggested_questions }: any = appParams
         setVisionConfig({
           ...file_upload.image,
           image_file_size_limit: appParams?.system_parameters?.image_file_size_limit,
@@ -345,6 +352,7 @@ const Main: FC<IMainProps> = ({
           prompt_template,
           prompt_variables,
         } as PromptConfig)
+        openingSuggestedQuestions.current = suggested_questions ?? []
         setSuggestedQuestionsAfterAnswerConfig(suggested_questions_after_answer)
         setSpeechToTextConfig(speech_to_text)
         setTextToSpeechConfig(text_to_speech)
@@ -352,8 +360,25 @@ const Main: FC<IMainProps> = ({
 
         // setConversationList(conversations as ConversationItem[])
 
-        if (isNotNewConversation)
+        if (isNotNewConversation) {
           setCurrConversationId(_conversationId, appId, false)
+        }
+        else {
+          const values: Record<string, any> = {}
+          const providedParams = new URL(window.location.href).searchParams
+          prompt_variables.forEach(({ key }) => {
+            if (providedParams.has(key) && providedParams.get(key))
+              values[key] = providedParams.get(key)
+          })
+          setCurrInputs(values)
+          if (Object.keys(values).length === prompt_variables.length) {
+            await createNewChat()
+            setConversationIdChangeBecauseOfNew(true)
+            setChatStarted()
+            console.log('init')
+            setChatList(generateNewChatListWithOpenstatement(introduction ?? '', values))
+          }
+        }
 
         setInited(true)
       }

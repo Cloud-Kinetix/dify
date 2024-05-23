@@ -43,6 +43,7 @@ const ImageGallery: FC<Props> = ({
           key={index}
           className={s.item}
           style={imgStyle}
+          referrerPolicy='no-referrer'
           src={src}
           alt=''
           onClick={() => setImagePreviewUrl(src)}
